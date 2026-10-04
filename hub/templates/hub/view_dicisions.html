@@ -1,0 +1,99 @@
+{% extends 'hub/base.html' %}
+{% block title %}{{ decision.question }}{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:640px">
+    <div class="page-header">
+        <div><h2>{{ decision.question }}</h2><p>{% if decision.is_resolved %}<span class="badge badge-green">Resolved</span>{% else %}<span class="badge badge-amber">Voting Open</span>{% endif %}</p></div>
+    </div>
+    <div class="ai-box" style="margin-bottom:20px" id="ai-rec">
+        <div class="ai-box-label">AI Recommendation</div>
+        <div id="ai-text">{{ decision.ai_recommendation }}</div>
+    </div>
+    <div class="card">
+        <div class="card-body">
+            <p style="font-size:13px;font-weight:600;color:#6b7280;margin-bottom:12px">OPTIONS</p>
+            <div id="options-list">
+            {% for option in decision.options.all %}
+            <div class="vote-option {% if user_vote and user_vote.option.id == option.id %}voted{% endif %}" id="opt-{{ option.id }}">
+                <div style="display:flex;align-items:center;gap:8px">
+                    <span style="font-size:14px;font-weight:500">{{ option.text }}</span>
+                    <span class="vote-count" id="vc-{{ option.id }}">{{ option.vote_count }}</span>
+                </div>
+                {% if not decision.is_resolved %}
+                <button type="button" class="btn {% if user_vote and user_vote.option.id == option.id %}btn-primary{% else %}btn-secondary{% endif %} btn-sm vote-btn"
+                    data-option-id="{{ option.id }}"
+                    {% if user_vote and user_vote.option.id == option.id %}disabled{% endif %}>
+                    {% if user_vote and user_vote.option.id == option.id %}Voted{% else %}Vote{% endif %}
+                </button>
+                {% endif %}
+            </div>
+            {% endfor %}
+            </div>
+            {% if not decision.is_resolved %}
+            <hr class="divider">
+            <button type="button" id="resolve-btn" class="btn btn-primary btn-sm">Mark as Resolved</button>
+            {% endif %}
+        </div>
+    </div>
+    <div style="margin-top:16px;display:flex;gap:8px">
+        <a href="{% url 'decisions' group.id %}" class="btn btn-ghost btn-sm">All Decisions</a>
+        <a href="{% url 'create_decision' group.id %}" class="btn btn-ghost btn-sm">New Decision</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    const decisionId = {{ decision.id }};
+    const csrf = getCSRF();
+
+    document.querySelectorAll('.vote-btn').forEach(function(btn){
+        btn.addEventListener('click', function(){
+            const optionId = this.dataset.optionId;
+            this.disabled = true;
+            this.textContent = 'Voting...';
+
+            fetch('/api/decision/' + decisionId + '/vote/', {
+                method: 'POST',
+                headers: {'Content-Type':'application/json','X-CSRFToken':csrf},
+                body: JSON.stringify({option_id: parseInt(optionId)})
+            })
+            .then(r => r.json())
+            .then(data => {
+                document.getElementById('ai-text').textContent = data.ai_recommendation;
+                document.querySelectorAll('.vote-btn').forEach(function(b){
+                    b.disabled = false;
+                    b.className = 'btn btn-secondary btn-sm vote-btn';
+                    b.textContent = 'Vote';
+                });
+                document.querySelectorAll('.vote-option').forEach(function(el){ el.classList.remove('voted'); });
+                data.options.forEach(function(opt){
+                    document.getElementById('vc-' + opt.id).textContent = opt.votes;
+                });
+                const voted = document.getElementById('opt-' + data.voted_option_id);
+                if(voted){ voted.classList.add('voted'); }
+                const votedBtn = document.querySelector('[data-option-id="' + data.voted_option_id + '"]');
+                if(votedBtn){ votedBtn.disabled = true; votedBtn.className = 'btn btn-primary btn-sm vote-btn'; votedBtn.textContent = 'Voted'; }
+                showToast('Vote recorded!');
+            })
+            .catch(() => { this.disabled = false; this.textContent = 'Vote'; showToast('Vote failed'); });
+        });
+    });
+
+    const resolveBtn = document.getElementById('resolve-btn');
+    if(resolveBtn){
+        resolveBtn.addEventListener('click', function(){
+            this.disabled = true;
+            fetch('/api/decision/' + decisionId + '/resolve/', {
+                method: 'POST',
+                headers: {'X-CSRFToken':csrf}
+            })
+            .then(r => r.json())
+            .then(() => { showToast('Decision resolved!'); setTimeout(()=>location.reload(), 1500); })
+            .catch(() => { this.disabled = false; });
+        });
+    }
+})();
+</script>
+{% endblock %}

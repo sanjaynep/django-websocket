@@ -1,0 +1,26 @@
+{% extends 'hub/base.html' %}
+{% block title %}Decisions{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:640px">
+    <div class="page-header">
+        <div><h2>Decisions</h2></div>
+        <a href="{% url 'create_decision' group.id %}" class="btn btn-primary btn-sm">New</a>
+    </div>
+    {% if active %}
+    <p style="font-size:13px;font-weight:600;color:#6b7280;margin-bottom:12px">ACTIVE</p>
+    {% for d in active %}
+    <a href="{% url 'view_decision' group.id d.id %}" style="text-decoration:none;display:block;margin-bottom:8px"><div class="card"><div class="card-body" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px"><span style="font-size:14px;font-weight:500;color:#1f2937">{{ d.question }}</span><span class="badge badge-amber">{{ d.options.count }} options</span></div></div></a>
+    {% endfor %}
+    {% endif %}
+    {% if resolved %}
+    <p style="font-size:13px;font-weight:600;color:#6b7280;margin-top:24px;margin-bottom:12px">RESOLVED</p>
+    {% for d in resolved %}
+    <a href="{% url 'view_decision' group.id d.id %}" style="text-decoration:none;display:block;margin-bottom:8px"><div class="card" style="opacity:.7"><div class="card-body" style="display:flex;align-items:center;justify-content:space-between;padding:14px 20px"><span style="font-size:14px;font-weight:500;color:#1f2937">{{ d.question }}</span><span class="badge badge-green">Done</span></div></div></a>
+    {% endfor %}
+    {% endif %}
+    {% if not active and not resolved %}
+    <div class="card"><div class="empty-state"><p>No decisions yet.</p><a href="{% url 'create_decision' group.id %}" class="btn btn-primary btn-sm">Create One</a></div></div>
+    {% endif %}
+    <div style="margin-top:16px"><a href="/" class="btn btn-ghost btn-sm">Home</a></div>
+</div>
+{% endblock %}

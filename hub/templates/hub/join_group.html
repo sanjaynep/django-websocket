@@ -1,0 +1,15 @@
+{% extends 'hub/base.html' %}
+{% block title %}Add Member{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:520px">
+    <div class="page-header"><h2>Add Friend to {{ group.name }}</h2></div>
+    <div class="card"><div class="card-body">
+        {% if error %}<div class="form-error">{{ error }}</div>{% endif %}
+        <form method="post">{% csrf_token %}
+            <div class="form-group"><label>Username</label><input type="text" name="username" class="input" placeholder="Friend's username" required></div>
+            <button type="submit" class="btn btn-primary btn-block">Add Member</button>
+        </form>
+    </div></div>
+    <div style="margin-top:16px"><a href="{% url 'group_chat' group.id %}" class="btn btn-ghost btn-sm">Back to chat</a></div>
+</div>
+{% endblock %}

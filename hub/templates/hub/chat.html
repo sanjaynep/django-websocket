@@ -1,0 +1,115 @@
+{% extends 'hub/base.html' %}
+{% block title %}{{ group.name }} Chat{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:720px">
+    <div class="card">
+        <div class="card-header">
+            <span style="display:flex;align-items:center;gap:8px"><svg class="icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>{{ group.name }}</span>
+            <span class="badge badge-blue">{{ group.members.count }} members</span>
+        </div>
+        <div class="chat-box" id="chatbox">
+            {% for msg in messages %}
+                {% if msg.is_ai %}
+                <div class="msg msg-ai"><div class="msg-bubble">{{ msg.content }}</div><div class="msg-meta">Buddy &middot; {{ msg.created_at|date:"H:i" }}</div></div>
+                {% elif msg.sender_id == user.id %}
+                <div class="msg msg-user"><div class="msg-bubble">{{ msg.content }}</div><div class="msg-meta">{{ msg.sender.username }} &middot; {{ msg.created_at|date:"H:i" }}</div></div>
+                {% else %}
+                <div class="msg msg-other"><div class="msg-bubble">{{ msg.content }}</div><div class="msg-meta">{{ msg.sender.username }} &middot; {{ msg.created_at|date:"H:i" }}</div></div>
+                {% endif %}
+            {% empty %}
+            <div class="empty-state" id="empty-msg"><p style="font-size:14px">No messages yet. Say hello!<br>Type <code style="background:#f3f4f6;padding:1px 5px;border-radius:3px">@buddy</code> to summon the AI.</p></div>
+            {% endfor %}
+        </div>
+        <div class="card-footer">
+            <div class="form-row">
+                <input type="text" id="chat-input" class="input" placeholder="Type a message... use @buddy for AI" autocomplete="off">
+                <button type="button" id="chat-send" class="btn btn-primary" style="flex-shrink:0">Send</button>
+            </div>
+            <p class="tip">Include <code>@buddy</code> to get an AI response. Press Enter to send.</p>
+        </div>
+    </div>
+    <div style="margin-top:12px;display:flex;gap:8px">
+        <a href="{% url 'join_group' group.id %}" class="btn btn-ghost btn-sm">Add Friend</a>
+        <a href="/" class="btn btn-ghost btn-sm">Home</a>
+    </div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    const groupId = {{ group.id }};
+    const username = "{{ user.username|escapejs }}";
+    const chatbox = document.getElementById('chatbox');
+    const input = document.getElementById('chat-input');
+    const sendBtn = document.getElementById('chat-send');
+    const emptyMsg = document.getElementById('empty-msg');
+
+    function scrollBottom(){ chatbox.scrollTop = chatbox.scrollHeight; }
+    scrollBottom();
+
+    function addMessage(text, user, isAi, time){
+        if(emptyMsg) emptyMsg.remove();
+        const div = document.createElement('div');
+        const isOwnMessage = !isAi && user === username;
+        div.className = 'msg ' + (isAi ? 'msg-ai' : (isOwnMessage ? 'msg-user' : 'msg-other'));
+        div.innerHTML = '<div class="msg-bubble"></div><div class="msg-meta"></div>';
+        div.querySelector('.msg-bubble').textContent = text;
+        div.querySelector('.msg-meta').textContent = (isAi ? 'Buddy' : user) + ' \u00b7 ' + time;
+        chatbox.appendChild(div);
+        scrollBottom();
+    }
+
+    function addTyping(){
+        const div = document.createElement('div');
+        div.className = 'typing-indicator';
+        div.id = 'typing';
+        div.innerHTML = '<span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> Buddy is thinking...';
+        chatbox.appendChild(div);
+        scrollBottom();
+    }
+
+    function removeTyping(){
+        const t = document.getElementById('typing');
+        if(t) t.remove();
+    }
+
+    function send(){
+        const text = input.value.trim();
+        if(!text || ws.readyState !== WebSocket.OPEN) return;
+        input.value = '';
+        sendBtn.disabled = true;
+        ws.send(JSON.stringify({message: text}));
+        if(text.toLowerCase().includes('@buddy') || text.toLowerCase().includes('@ai')){
+            addTyping();
+        }
+    }
+
+    sendBtn.addEventListener('click', send);
+    input.addEventListener('keydown', function(e){ if(e.key==='Enter' && !sendBtn.disabled){ e.preventDefault(); send(); } });
+
+    const wsScheme = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    const ws = new WebSocket(wsScheme + '://' + window.location.host + '/ws/group/' + groupId + '/chat/');
+
+    ws.onopen = function(){
+        sendBtn.disabled = false;
+    };
+
+    ws.onmessage = function(e){
+        const data = JSON.parse(e.data);
+        if(data.type === 'message'){
+            removeTyping();
+            addMessage(data.message, data.username, data.is_ai, data.time);
+            sendBtn.disabled = false;
+        } else if(data.type === 'typing'){
+            addTyping();
+        }
+    };
+
+    ws.onclose = function(){
+        sendBtn.disabled = true;
+        showToast('Disconnected. Refresh to reconnect.');
+    };
+})();
+</script>
+{% endblock %}

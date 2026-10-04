@@ -1,0 +1,17 @@
+{% extends 'hub/base.html' %}
+{% block title %}New List{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:520px">
+    <div class="page-header"><h2>New Shared List</h2></div>
+    <div class="card">
+        <div class="card-body">
+            <form method="post">
+                {% csrf_token %}
+                <div class="form-group"><label>List Name</label><input type="text" name="name" class="input" placeholder="Movies to watch together" required></div>
+                <button type="submit" class="btn btn-primary btn-block">Create List</button>
+            </form>
+        </div>
+    </div>
+    <div style="margin-top:12px"><a href="{% url 'shared_lists' group.id %}" class="btn btn-ghost btn-sm">Back</a></div>
+</div>
+{% endblock %}

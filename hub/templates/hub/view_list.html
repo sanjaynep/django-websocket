@@ -1,0 +1,120 @@
+{% extends 'hub/base.html' %}
+{% block title %}{{ shared_list.name }}{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:640px">
+    <div class="page-header"><h2>{{ shared_list.name }}</h2></div>
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-body">
+            <div class="form-row" style="margin-bottom:16px">
+                <input type="text" id="add-input" class="input" placeholder="Add item...">
+                <button type="button" id="add-btn" class="btn btn-primary" style="flex-shrink:0">Add</button>
+            </div>
+            <div id="items-list">
+            {% for item in items %}
+            <div class="list-item {% if item.is_completed %}done{% endif %}" id="item-{{ item.id }}">
+                <input type="checkbox" {% if item.is_completed %}checked{% endif %} data-item-id="{{ item.id }}" class="toggle-check">
+                <span class="list-text" style="flex:1">{{ item.text }}</span>
+                <span style="font-size:12px;color:#9ca3af">{{ item.added_by.username }}</span>
+            </div>
+            {% empty %}
+            <p id="empty-list" style="text-align:center;color:#9ca3af;font-size:14px;padding:16px 0">List is empty. Add something above.</p>
+            {% endfor %}
+            </div>
+        </div>
+    </div>
+    <div class="card" style="margin-bottom:16px">
+        <div class="card-header"><span>AI List Assistant</span></div>
+        <div class="card-body">
+            <div class="form-row" style="margin-bottom:12px">
+                <input type="text" id="ai-input" class="input" placeholder='Try: "suggest 5 more", "categorize"'>
+                <button type="button" id="ai-btn" class="btn btn-secondary" style="flex-shrink:0">Ask AI</button>
+            </div>
+            <div id="ai-response"></div>
+        </div>
+    </div>
+    <div style="margin-top:8px"><a href="{% url 'shared_lists' group.id %}" class="btn btn-ghost btn-sm">All Lists</a></div>
+</div>
+{% endblock %}
+
+{% block extra_js %}
+<script>
+(function(){
+    const listId = {{ shared_list.id }};
+    const csrf = getCSRF();
+
+    // Add item
+    const addInput = document.getElementById('add-input');
+    const addBtn = document.getElementById('add-btn');
+    function addItem(){
+        const text = addInput.value.trim();
+        if(!text) return;
+        addBtn.disabled = true;
+        addInput.value = '';
+        fetch('/api/list/' + listId + '/add/', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':csrf},
+            body:JSON.stringify({text:text})
+        })
+        .then(r=>r.json())
+        .then(data=>{
+            const empty = document.getElementById('empty-list');
+            if(empty) empty.remove();
+            const container = document.getElementById('items-list');
+            const div = document.createElement('div');
+            div.className = 'list-item';
+            div.id = 'item-' + data.id;
+            div.innerHTML = '<input type="checkbox" data-item-id="' + data.id + '" class="toggle-check"><span class="list-text" style="flex:1">' + data.text + '</span><span style="font-size:12px;color:#9ca3af">' + data.added_by + '</span>';
+            container.insertBefore(div, container.firstChild);
+            bindToggle(div.querySelector('.toggle-check'));
+            addBtn.disabled = false;
+        })
+        .catch(()=>{ addBtn.disabled = false; showToast('Failed to add item'); });
+    }
+    addBtn.addEventListener('click', addItem);
+    addInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){e.preventDefault();addItem();} });
+
+    // Toggle item
+    function bindToggle(cb){
+        cb.addEventListener('change', function(){
+            const itemId = this.dataset.itemId;
+            fetch('/api/list/' + listId + '/toggle/' + itemId + '/', {
+                method:'POST',
+                headers:{'X-CSRFToken':csrf}
+            })
+            .then(r=>r.json())
+            .then(data=>{
+                const row = document.getElementById('item-' + data.id);
+                if(data.is_completed) row.classList.add('done');
+                else row.classList.remove('done');
+            });
+        });
+    }
+    document.querySelectorAll('.toggle-check').forEach(bindToggle);
+
+    // AI action
+    const aiInput = document.getElementById('ai-input');
+    const aiBtn = document.getElementById('ai-btn');
+    const aiResp = document.getElementById('ai-response');
+    function askAI(){
+        const action = aiInput.value.trim();
+        if(!action) return;
+        aiBtn.disabled = true;
+        aiInput.value = '';
+        aiResp.innerHTML = '<div class="typing-indicator"><span class="typing-dot"></span><span class="typing-dot"></span><span class="typing-dot"></span> Thinking...</div>';
+        fetch('/api/list/' + listId + '/ai/', {
+            method:'POST',
+            headers:{'Content-Type':'application/json','X-CSRFToken':csrf},
+            body:JSON.stringify({action:action})
+        })
+        .then(r=>r.json())
+        .then(data=>{
+            aiResp.innerHTML = '<div class="ai-box">' + data.response + '</div>';
+            aiBtn.disabled = false;
+        })
+        .catch(()=>{ aiResp.innerHTML = ''; aiBtn.disabled = false; showToast('AI request failed'); });
+    }
+    aiBtn.addEventListener('click', askAI);
+    aiInput.addEventListener('keydown', function(e){ if(e.key==='Enter'){e.preventDefault();askAI();} });
+})();
+</script>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends 'hub/base.html' %}
+{% block title %}New Decision{% endblock %}
+{% block content %}
+<div class="container-narrow" style="max-width:520px">
+    <div class="page-header"><h2>New Decision</h2></div>
+    <div class="card"><div class="card-body">
+        <form method="post">{% csrf_token %}
+            <div class="form-group"><label>What do you need to decide?</label><input type="text" name="question" class="input" placeholder="Where should we eat tonight?" required></div>
+            <div class="form-group"><label>Options (one per line)</label><textarea name="options_text" class="input" rows="4" required placeholder="Pizza Place&#10;Thai Restaurant&#10;Cook at home"></textarea></div>
+            <button type="submit" class="btn btn-primary btn-block">Create and Get AI Suggestion</button>
+        </form>
+    </div></div>
+    <div style="margin-top:12px"><a href="{% url 'decisions' group.id %}" class="btn btn-ghost btn-sm">Back</a></div>
+</div>
+{% endblock %}

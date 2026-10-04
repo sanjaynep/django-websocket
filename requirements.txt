@@ -1,0 +1,9 @@
+django>=4.2
+requests>=2.31
+markdown2>=2.4
+torch
+transformers
+accelerate
+sentencepiece
+channels>=4.0
+daphne>=4.0
